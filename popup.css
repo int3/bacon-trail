@@ -1,0 +1,65 @@
+* {
+    padding: 0;
+    margin: 0;
+    border: 0;
+    font-family: arial, helvetica, sans-serif;
+}
+body {
+    margin: 0px 2px;
+}
+.header {
+    white-space: nowrap;
+    height: .9em;
+}
+h2 {
+    font-size: .9em;
+}
+#status {
+    font-size: .7em;
+    color: #ff3333;
+}
+#rd_list {
+    display: table; /* displaying as list causes popup sizing problems */
+    list-style-type: none;
+    font-size: .8em;
+}
+.rd_row {
+    display: table-row;
+}
+.rd_cell {
+    margin: 5px 0px;
+}
+.toprow {
+    display: table;
+}
+.score, .voteblock, .commentblock {
+    vertical-align: middle;
+    display: table-cell;
+    padding: 2px;
+}
+.voteblock {
+    text-align: center;
+}
+.score {
+    color: #062D75;
+    font-weight: bold;
+    font-size: 1.35em;
+    white-space: nowrap;
+}
+.ups {
+    color: orangered;
+}
+.downs {
+    color: #5f99cf;
+}
+.permalink {
+    white-space: nowrap;
+}
+.linkinfo {
+    font-size: .7em;
+    clear: both;
+}
+a {
+    color: #00f;
+    text-decoration: none;
+}

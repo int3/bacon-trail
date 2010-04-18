@@ -1,0 +1,101 @@
+<html>
+    <head>
+        <script src='utils.js'></script>
+        <script>
+            // set default options
+            localStorage['link_behavior'] = localStorage['link_behavior'] || 'same_tab';
+
+            var linkCache = {}; /** { key=subreddit, value={ key=url in nav bar, value=reddit url } } **/
+            var infoCache = {};
+            var tabWatch = {};
+            var modhash;
+            function RDInfo(url) {
+                this.url = url;
+                this.update = function(f) {
+                    var that = this;
+                    now = (new Date()).getTime();
+                    if (!this.ts || now - this.ts > 30000) { // refrain from polling too often
+                        ajax('GET', 'http://reddit.com/api/info.json', { 'url': this.url }, function(text) {
+                            that.info = JSON.parse(text).data.children;
+                            that.ts = now;
+                            if (f) f();
+                        });
+                    }
+                }
+            }
+            chrome.extension.onRequest.addListener(function(req, sender) {
+                switch (req.msg) {
+                    case 'linkCache':
+                        linkCache[sender.tab.url] = req.outbound;
+                        break;
+                    case 'setModhash':
+                        modhash = req.modhash;
+                        break;
+                    case 'watchTab':
+                        tabWatch[sender.tab.id] = req.linkUrl;
+                        break;
+                }
+            });
+            chrome.tabs.onCreated.addListener(function(tab) {
+                tabWatch[tab.id] = tab.url;
+            });
+            chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+                if (changeInfo.status !== 'loading') return; // only do stuff once per url change
+                if (/^http:\/\/www.reddit.com/.test(tab.url)) return; // filter out self posts
+
+                console.log('Proceeding to search caches for ' + tab.url + '...');
+
+                var loadingIcon = (function() {
+                    var index = 0;
+                    return function() {
+                        index %= 3;
+                        chrome.pageAction.setIcon({ 'tabId': tabId, 'path': 'imgs/load' + index++ + '.jpg' });
+                    }
+                })();
+
+                function showPA(url) {
+                    loadingIcon();
+                    var loadingTimer = setInterval(loadingIcon, '300');
+                    chrome.pageAction.show(tabId);
+                    infoCache[tabId] = new RDInfo(url);
+                    infoCache[tabId].update(function() {
+                        clearInterval(loadingTimer);
+                        chrome.pageAction.setIcon({ 'tabId': tabId, 'path': 'imgs/reddit.ico' });
+                        chrome.extension.sendRequest({ 'msg': 'pageActionReady', 'forTabId': tabId });
+                    });
+                }
+
+                function searchCache(url) {
+                    for (var i in linkCache) {
+                        if (linkCache[i][url]) {
+                            console.log(url + ' found in link cache');
+                            showPA(linkCache[i][url]);
+                            return i;
+                        }
+                    }
+                    return null;
+                }
+
+                if (searchCache(tab.url) !== null) {
+                    // ...
+                } else if (tabWatch[tabId]) {
+                    console.log(tab.url + ', ' + tabId + ' found in watched tabs');
+                    var subrd = searchCache(tabWatch[tabId]);
+                    if (subrd !== null)
+                        linkCache[subrd][tab.url] = tabWatch[tabId];  
+                } else { // maybe user navigated away from a reddited page
+                    delete infoCache[tab.id];
+                }
+                delete tabWatch[tabId];
+            });
+            chrome.tabs.onSelectionChanged.addListener(function(tabId) {
+                if (infoCache[tabId]) {
+                    infoCache[tabId].update();
+                }
+            });
+            chrome.tabs.onRemoved.addListener(function(tabId) {
+                delete infoCache[tabId];
+            });
+        </script>
+    </head>
+</html>

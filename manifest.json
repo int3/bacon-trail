@@ -1,0 +1,29 @@
+{
+"update_url":"http://clients2.google.com/service/update2/crx",
+    "name": "Bacon Trail",
+    "version": "0.7.2",
+    "description": "Allows you to upvote, save, and check the comments of a Reddited link directly from a page action.",
+    "background_page": "background.html",
+    "options_page": "options.html",
+    "page_action": {
+        "default_icon": "imgs/reddit.ico",
+        "default_title": "Bacon Trail",
+        "popup": "popup.html"
+    },
+   "content_scripts": [
+        {
+            "js": [ "jquery-1.4.2.min.js" ],
+            "matches": [ "http://www.reddit.com/*" ],
+            "run_at": "document_start"
+        },
+        {
+            "js": [ "reddit.js" ],
+            "matches": [ "http://www.reddit.com/*" ],
+            "run_at": "document_end"
+        }
+    ],
+    "permissions": [
+        "http://*.reddit.com/*",
+        "tabs"
+    ]
+}

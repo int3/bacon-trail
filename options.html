@@ -1,0 +1,35 @@
+<html>
+<head>
+<title>Bacon Trail Settings</title>
+<link rel='stylesheet' href='options.css' type='text/css' />
+<script src='jquery-1.4.2.min.js'></script>
+<script type='text/javascript'>
+$(document).ready(function() {
+    $('#save').click(function() {
+        localStorage['link_behavior'] = $('input[name=link_behavior]:checked').val();
+        $('#save_status').text('Settings saved!').show().fadeOut(800);
+    });
+
+    // restore options
+    $('input[name=link_behavior][value=' + localStorage['link_behavior'] + ']').attr('checked', true);
+});
+</script>
+</head>
+
+<body>
+<h2>Bacon Trail Settings</h2>
+<form>
+<fieldset>
+<legend>Popup behavior</legend>
+<label>Popup links to open in:</label> <br/>
+<input type='radio' name='link_behavior' value='same_tab' id='radio_same_tab' />
+    <label for='radio_same_tab' class='radio'>Same tab</label>
+<input type='radio' name='link_behavior' value='new_tab' id='radio_new_tab' />
+    <label for='radio_new_tab' class='radio'>New tab</label>
+</fieldset>
+<input type='button' id='save' value='save' />
+<span id='save_status'></span>
+</form>
+</body>
+
+</html>

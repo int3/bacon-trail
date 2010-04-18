@@ -1,0 +1,210 @@
+<html>
+<head>
+<link rel='stylesheet' href='popup.css' type='text/css' />
+<script src='jquery-1.4.2.min.js'></script>
+<script src='utils.js'></script>
+<script>
+    chrome.tabs.getSelected(undefined, function(tab) {
+        chrome.extension.onRequest.addListener(function(req) {
+            if (req.msg === 'pageActionReady' && req.forTabId === tab.id) {
+                ready();
+            }
+        });
+    });
+    setTimeout(ready, 0); // workaround for http://crbug.com/24467, stolen from Chritter
+    function ready() {    // jquery's $(document).ready causes sizing problems in popup
+        chrome.tabs.getSelected(undefined, function(tab) {
+            var bg = chrome.extension.getBackgroundPage();
+            var info = bg.infoCache[tab.id].info;
+            var now = new Date();
+
+            if (!info) {
+                $('#rd_list').hide();
+                var loadImage = $('<img />')
+                    .attr('src', 'imgs/loading.gif')
+                    .attr('id', 'loading');
+                $('body').append(loadImage);
+                return;
+            } else {
+                $('#loading').hide();
+                $('#rd_list').show();
+            }
+
+            function postToReddit(api, id, params, f) {
+                if (bg.modhash === '') {
+                    // alerts seem to appear behind popup on linux, so use this instead
+                    $('h2').fadeOut(200, function() {
+                        $('#status').text('You aren\'t logged in!').show().fadeOut(1000, function() {
+                            $('h2').fadeIn(200);
+                        });
+                    });
+                    if (f) f();
+                    return;
+                }
+                params.uh = bg.modhash;
+                params.id = 't3_' + id;
+                ajax('POST', 'http://www.reddit.com/api/' + api, params, f);
+            }
+            function postVote(id, dir, f) { /** down=-1  up=+1 remove-vote=0 **/
+                postToReddit('vote', id, { 'dir': dir }, f);
+            }
+            function postSave(id, save, f) {
+                postToReddit((save ? '' : 'un') + 'save', id, {}, f);
+            }
+
+            var rdList = $('#rd_list');
+            var newEntry = rdList.find('> div:first');
+            // can't figure out how to add methods to jquery objects
+            // that stick through cloning...
+            function displayVotes(entry, data) {
+                entry.find('img.arrow[data-arrow-type="up"]')
+                    .attr('src', 'imgs/aup' + (data.likes ? 'mod' : 'gray') + '.gif');
+                entry.find('img.arrow[data-arrow-type="down"]')
+                    .attr('src', 'imgs/adown' + (data.likes === false ? 'mod' : 'gray') + '.gif');
+                entry.find('.score').text(data.ups-data.downs);
+                entry.find('.ups').text(data.ups);
+                entry.find('.downs').text(data.downs);
+            }
+            function displaySave(entry, data) {
+                entry.find('img.save')
+                    .attr('src', 'imgs/heart' + (data.saved ? 'red' : 'grey') + '.png');
+            }
+            for (var i in info) {
+                var data = info[i].data;
+
+                newEntry.find('.permalink')
+                    .attr('href', 'http://www.reddit.com' + data.permalink)
+                newEntry.find('.num_comments')
+                    .text(data.num_comments);
+                newEntry.find('a.subreddit')
+                    .attr('href', 'http://www.reddit.com/r/' + data.subreddit)
+                    .text(data.subreddit);
+
+                displayVotes(newEntry, data);
+                newEntry.find('img.arrow').data('index', i).click(function() {
+                    var index = $(this).data('index');
+                    var data = info[index].data;
+                    var old = {
+                        'likes': data.likes,
+                        'ups': data.ups,
+                        'downs': data.downs
+                    };
+                    if (this.getAttribute('data-arrow-type') === 'up') {
+                        if (data.likes) {
+                            data.ups--;
+                            data.likes = null;
+                        } else {
+                            data.ups++;
+                            if (data.likes === false) data.downs--;
+                            data.likes = true;
+                        }
+                    } else { // down
+                        if (data.likes === false) {
+                            data.downs--;
+                            data.likes = null;
+                        } else {
+                            data.downs++;
+                            if (data.likes) data.ups--;
+                            data.likes = false;
+                        }
+                    }
+                    var dir = 0;
+                    if (data.likes === true) dir = 1;
+                    else if (data.likes === false) dir = -1;
+                    displayVotes($(rdList.find('> div')[index]), data);
+                    postVote(data.id, dir, function(response) {
+                        if (response !== '{}') {
+                            data.likes = old.likes;
+                            data.ups = old.ups;
+                            data.downs = old.downs;
+                            displayVotes($(rdList.find('> div')[index]), data);
+                        }
+                    });
+                });
+
+                displaySave(newEntry, data);
+                newEntry.find('img.save').data('index', i).click(function() {
+                    var index = $(this).data('index');
+                    var data = info[index].data;
+                    var old_saved = data.saved;
+                    displaySave($(rdList.find('> div')[index]), data);
+                    postSave(data.id, data.saved = !data.saved, function(response) {
+                        if (response !== '{}') {
+                            data.saved = old_saved;
+                            displaySave($(rdList.find('> div')[index]), data);
+                        }
+                    });
+                });
+
+                var dateDiff;
+                var diffUnit;
+                if ((dateDiff = now.getTime()/1000 - data.created_utc) < 0) {
+                    console.log('error: system clock is behind reddit clock');
+                } else {
+                    if (dateDiff < 60) {
+                        diffUnit = 'second';
+                    } else if ((dateDiff /= 60) < 60) {
+                        diffUnit = 'minute';
+                    } else if ((dateDiff /= 60) < 24) {
+                        diffUnit = 'hour';
+                    } else if ((dateDiff /= 24) < 31) {
+                        diffUnit = 'day';
+                    } else {
+                        var createdDate = new Date(data.created_utc*1000);
+                        dateDiff = (now.getFullYear() - createdDate.getFullYear()) * 12
+                            - createdDate.getMonth() + now.getMonth();
+                        if (dateDiff < 12) {
+                            diffUnit = 'month';
+                        } else {
+                            dateDiff /= 12;
+                            diffUnit = 'year';
+                        }
+                    }
+                    dateDiff = Math.floor(dateDiff);
+                    if (dateDiff > 1) diffUnit += 's';
+                    newEntry.find('.duration')
+                        .text(dateDiff + ' ' + diffUnit + ' ago');
+                }
+
+                rdList.append(newEntry);
+                if (i < info.length-1) newEntry = newEntry.clone();
+            }
+
+            $('a').click(function(event) {
+                event.preventDefault();
+                if (localStorage['link_behavior'] === 'same_tab')
+                    chrome.tabs.update(tab.id, { 'url': this.href });
+                else
+                    chrome.tabs.create({ 'url': this.href });
+                window.close();
+            });
+        });
+    }
+</script>
+</head>
+<body>
+    <div class='header'><h2>Bacon Trail</h2><span id='status'></span></div>
+    <div id='rd_list'>
+        <div class='rd_row'><div class='rd_cell'>
+            <div class='toprow'>
+                <span class='score'></span>
+                <div class='voteblock'>
+                    <img class='arrow' data-arrow-type='up' />
+                    <div class='ups'></div>
+                </div>
+                <div class='voteblock'>
+                    <img class='arrow' data-arrow-type='down' />
+                    <div class='downs'></div>
+                </div>
+                <div class='commentblock'>
+                    <a class='permalink'><span class='num_comments'></span><img src='imgs/comments.png' /></a>
+                    <div><img class='save' /></div>
+                </div>
+            </div>
+            <div class='linkinfo'>
+                <span class='duration'></span> @&nbsp;<a class='subreddit'></a>
+            </div>
+        </div></div>
+    </div>
+</body>
+</html>
