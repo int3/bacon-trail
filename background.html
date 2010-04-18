@@ -63,6 +63,8 @@
                         chrome.pageAction.setIcon({ 'tabId': tabId, 'path': 'imgs/reddit.ico' });
                         chrome.extension.sendRequest({ 'msg': 'pageActionReady', 'forTabId': tabId });
                     });
+                    // in case update() never returns, prevent memory leak
+                    setTimeout(function() { clearInterval(loadingTimer) } , '30000000');
                 }
 
                 function searchCache(url) {
@@ -82,7 +84,7 @@
                     console.log(tab.url + ', ' + tabId + ' found in watched tabs');
                     var subrd = searchCache(tabWatch[tabId]);
                     if (subrd !== null)
-                        linkCache[subrd][tab.url] = tabWatch[tabId];  
+                        linkCache[subrd][tab.url] = tabWatch[tabId];
                 } else { // maybe user navigated away from a reddited page
                     delete infoCache[tab.id];
                 }

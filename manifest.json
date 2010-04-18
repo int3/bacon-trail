@@ -1,7 +1,7 @@
 {
 "update_url":"http://clients2.google.com/service/update2/crx",
     "name": "Bacon Trail",
-    "version": "0.7.3",
+    "version": "0.7.4",
     "description": "Allows you to upvote, save, and check the comments of a Reddited link directly from a page action.",
     "background_page": "background.html",
     "options_page": "options.html",
