@@ -126,11 +126,11 @@
                 newEntry.find('img.save').data('index', i).click(function() {
                     var index = $(this).data('index');
                     var data = info[index].data;
-                    var old_saved = data.saved;
+                    data.saved = !data.saved;
                     displaySave($(rdList.find('> div')[index]), data);
-                    postSave(data.id, data.saved = !data.saved, function(response) {
+                    postSave(data.id, data.saved, function(response) {
                         if (response !== '{}') {
-                            data.saved = old_saved;
+                            data.saved = !data.saved;
                             displaySave($(rdList.find('> div')[index]), data);
                         }
                     });
