@@ -14,6 +14,9 @@
     setTimeout(ready, 0); // workaround for http://crbug.com/24467, stolen from Chritter
     function ready() {    // jquery's $(document).ready causes sizing problems in popup
         chrome.tabs.getSelected(undefined, function(tab) {
+            // hide title?
+            if (localStorage['display_title'] === 'hide_title')
+                $('div.header').hide();
             var bg = chrome.extension.getBackgroundPage();
             var info = bg.infoCache[tab.id].info;
             var now = new Date();
